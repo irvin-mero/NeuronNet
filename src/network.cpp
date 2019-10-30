@@ -62,6 +62,31 @@ size_t Network::random_connect(const double &mean_deg, const double &mean_streng
     return num_links;
 }
 
+std::pair<size_t, double> Network::degree(const size_t& rec_neuro) const{
+	std::vector<std::pair<size_t, double> > connected_neuros(neighbors(rec_neuro));
+	std::pair<size_t,double> res;
+	res.first = connected_neuros.size();
+	double sum_int(0.0);
+	for(const auto& neuro: connected_neuros){
+		sum_int+=neuro.second;
+	}
+	res.second = sum_int;
+	return res;
+}
+
+std::vector<std::pair<size_t, double> > Network::neighbors(const size_t& ind_recev_neuro) const{
+	std:: vector<std::pair<size_t,double>> resul;
+	for(linkmap::const_iterator i=links.cbegin(); i!=links.cend();++i){
+		//vu que le deuxieme sur link est le sending et premier receiver on voit que le premier
+		if(i->first.first ==ind_recev_neuro){ 
+			resul.push_back(std::pair<size_t,double>(i->first.second,i->second));
+		}
+	}
+	return resul;
+	
+	
+}
+
 std::vector<double> Network::potentials() const {
     std::vector<double> vals;
     for (size_t nn=0; nn<size(); nn++)
@@ -75,7 +100,42 @@ std::vector<double> Network::recoveries() const {
         vals.push_back(neurons[nn].recovery());
     return vals;
 }
-
+std::set<size_t> Network::step(const std::vector<double>& thalamic_input){
+	std::set<size_t> fir;
+	//on prend en compte que ces qui sont firing on garde leur indice pour la suite
+	for(size_t i(0);i<neurons.size(); i++){
+		if(neurons[i].firing()){
+			fir.insert(i);
+			neurons[i].reset();
+		}
+	}
+	
+	for(size_t i(0);i<neurons.size(); i++){
+		double to_rem(0.0);
+		double to_add(0.0);
+		std::vector<std::pair<size_t, double> > connected(neighbors(i));
+		//on regarde en premier s'il y a des neurones firing et la neurone i a des neurones connectées,sinon on passe au suivant
+		if (not (fir.empty() or connected.empty())){
+			for(const auto& connex:connected){
+				if(fir.count(connex.first)==1){
+					if(neurons[connex.first].is_inhibitory()){
+						to_rem+=connex.second;
+					}else{ 
+						to_add+=connex.second;
+					}
+				}
+			}
+		}
+		if(neurons[i].is_inhibitory()){
+			neurons[i].input(0.4*thalamic_input[i]+0.5*to_add+to_rem);
+		} else { neurons[i].input(thalamic_input[i]+0.5*to_add+to_rem);
+		}
+	
+		neurons[i].step();
+	}
+	
+	return fir;
+}
 void Network::print_params(std::ostream *_out) {
     (*_out) << "Type\ta\tb\tc\td\tInhibitory\tdegree\tvalence" << std::endl;
     for (size_t nn=0; nn<size(); nn++) {
