@@ -76,11 +76,9 @@ std::pair<size_t, double> Network::degree(const size_t& rec_neuro) const{
 
 std::vector<std::pair<size_t, double> > Network::neighbors(const size_t& ind_recev_neuro) const{
 	std:: vector<std::pair<size_t,double>> resul;
-	for(linkmap::const_iterator i=links.cbegin(); i!=links.cend();++i){
+	for(linkmap::const_iterator i=links.lower_bound({ind_recev_neuro,0}); i!=links.cend() and (i->first).first == ind_recev_neuro;++i){
 		//vu que le deuxieme sur link est le sending et premier receiver on voit que le premier
-		if(i->first.first ==ind_recev_neuro){ 
 			resul.push_back(std::pair<size_t,double>(i->first.second,i->second));
-		}
 	}
 	return resul;
 	
@@ -103,14 +101,14 @@ std::vector<double> Network::recoveries() const {
 std::set<size_t> Network::step(const std::vector<double>& thalamic_input){
 	std::set<size_t> fir;
 	//on prend en compte que ces qui sont firing on garde leur indice pour la suite
-	for(size_t i(0);i<neurons.size(); i++){
+	for(size_t i(0);i<neurons.size(); ++i){
 		if(neurons[i].firing()){
 			fir.insert(i);
 			neurons[i].reset();
 		}
 	}
 	
-	for(size_t i(0);i<neurons.size(); i++){
+	for(size_t i(0);i<neurons.size(); ++i){
 		double to_rem(0.0);
 		double to_add(0.0);
 		std::vector<std::pair<size_t, double> > connected(neighbors(i));
